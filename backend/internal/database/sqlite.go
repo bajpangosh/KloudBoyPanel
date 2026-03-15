@@ -20,6 +20,10 @@ func Open(cfg config.Config) (*sql.DB, error) {
 		return nil, err
 	}
 
+	// SQLite behaves best with a single shared connection in this app shape.
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
 	statements := []string{
 		`PRAGMA foreign_keys = ON;`,
 		schemaSQL,
@@ -135,4 +139,3 @@ func seedSettings(db *sql.DB, cfg config.Config) error {
 
 	return nil
 }
-
