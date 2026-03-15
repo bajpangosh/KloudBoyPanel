@@ -1,13 +1,6 @@
-import axios from "axios";
-
 import type { DashboardOverview } from "../data/panel";
 import { fallbackOverview } from "../data/panel";
-
-const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
-
-const api = axios.create({
-  baseURL: configuredBaseUrl === undefined ? "" : configuredBaseUrl
-});
+import { api } from "./http";
 
 export async function fetchDashboardOverview(): Promise<DashboardOverview> {
   try {

@@ -23,21 +23,29 @@ func NewRouter(application *app.Application) *gin.Engine {
 
 	api := router.Group("/api")
 	{
-		api.GET("/dashboard/overview", h.dashboardOverview)
-		api.GET("/sites", h.listSites)
-		api.GET("/databases", h.listDatabases)
-		api.GET("/backups", h.listBackups)
-		api.GET("/server/status", h.serverStatus)
-		api.GET("/panel/configuration", h.panelConfiguration)
-		api.POST("/sites/create", h.createSite)
-		api.POST("/sites/delete", h.deleteSite)
-		api.POST("/site/create", h.createSite)
-		api.POST("/site/delete", h.deleteSite)
-		api.POST("/backup", h.createBackup)
-		api.POST("/php/change", h.changePHPVersion)
+		api.POST("/auth/login", h.login)
 	}
 
-	mountFrontend(router, application.Config.StaticDir)
+	protected := api.Group("")
+	protected.Use(h.requireAuth())
+	{
+		protected.GET("/auth/me", h.currentAdmin)
+		protected.POST("/auth/logout", h.logout)
+		protected.GET("/dashboard/overview", h.dashboardOverview)
+		protected.GET("/sites", h.listSites)
+		protected.GET("/databases", h.listDatabases)
+		protected.GET("/backups", h.listBackups)
+		protected.GET("/server/status", h.serverStatus)
+		protected.GET("/panel/configuration", h.panelConfiguration)
+		protected.POST("/sites/create", h.createSite)
+		protected.POST("/sites/delete", h.deleteSite)
+		protected.POST("/site/create", h.createSite)
+		protected.POST("/site/delete", h.deleteSite)
+		protected.POST("/backup", h.createBackup)
+		protected.POST("/php/change", h.changePHPVersion)
+	}
+
+	mountFrontend(router, application.Config.StaticDir, application.Config.PanelBasePath())
 
 	return router
 }
@@ -165,6 +173,8 @@ func writeError(c *gin.Context, err error) {
 		status = http.StatusNotFound
 	} else if errors.Is(err, services.ErrInvalidInput) {
 		status = http.StatusBadRequest
+	} else if errors.Is(err, services.ErrUnauthorized) {
+		status = http.StatusUnauthorized
 	}
 
 	c.JSON(status, gin.H{

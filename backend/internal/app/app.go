@@ -2,6 +2,7 @@ package app
 
 import (
 	"database/sql"
+	"log"
 	"os"
 
 	"github.com/kloudboy/panel/backend/internal/config"
@@ -12,6 +13,7 @@ import (
 type Application struct {
 	Config        config.Config
 	DB            *sql.DB
+	AuthService   *services.AuthService
 	SiteService   *services.SiteService
 	BackupService *services.BackupService
 	PHPService    *services.PHPService
@@ -29,14 +31,24 @@ func Bootstrap() (*Application, error) {
 		return nil, err
 	}
 
+	authService := services.NewAuthService(db, cfg)
 	siteService := services.NewSiteService(db, cfg)
 	backupService := services.NewBackupService(db, cfg)
 	phpService := services.NewPHPService(db)
 	serverService := services.NewServerService(db, cfg)
 
+	bootstrapCredentials, err := authService.Initialize()
+	if err != nil {
+		return nil, err
+	}
+	if bootstrapCredentials != nil {
+		log.Printf("[kloudboy] Initial admin credentials are ready at %s", bootstrapCredentials.CredentialsPath)
+	}
+
 	return &Application{
 		Config:        cfg,
 		DB:            db,
+		AuthService:   authService,
 		SiteService:   siteService,
 		BackupService: backupService,
 		PHPService:    phpService,
@@ -68,4 +80,3 @@ func ensureDirectories(cfg config.Config) error {
 
 	return nil
 }
-

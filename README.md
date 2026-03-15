@@ -79,7 +79,7 @@ docker compose -f docker-compose.single.yml up --build
 
 Then open:
 
-- Panel UI: `http://localhost:8443`
+- Panel login: `http://localhost:8443/kb-admin-demo/login`
 - API health: `http://localhost:8443/healthz`
 
 Example API test:
@@ -101,6 +101,8 @@ To stop it:
 ```bash
 docker compose -f docker-compose.single.yml down
 ```
+
+On the first boot, KloudBoy now generates an initial admin and prints the credentials in the container logs. You can also find them in the generated credentials file inside the data volume.
 
 ## Current scope
 

@@ -37,6 +37,22 @@
             Domain, port, and hidden login path are configurable from the backend environment.
           </p>
         </div>
+
+        <div class="mt-5 rounded-[28px] border border-slate-200/80 bg-white/80 p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Signed in as
+          </p>
+          <p class="mt-3 font-display text-lg font-semibold text-slate-950">
+            {{ authState.admin?.email || "Unknown admin" }}
+          </p>
+          <button
+            type="button"
+            class="mt-4 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+            @click="handleLogout"
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       <main class="pb-6">
@@ -69,12 +85,18 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { RouterLink, RouterView, useRoute } from "vue-router";
+import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { navigationItems } from "../data/panel";
+import { authState, loginPath, logout } from "../services/auth";
 
 const route = useRoute();
+const router = useRouter();
 
-const panelAccess = computed(() => "panel.example.com:8443/kb-admin-demo/");
+const panelAccess = computed(() => `${window.location.origin}${import.meta.env.BASE_URL}login`);
+
+async function handleLogout(): Promise<void> {
+  await logout();
+  await router.push(loginPath());
+}
 </script>
-

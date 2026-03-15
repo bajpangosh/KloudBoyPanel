@@ -45,6 +45,14 @@ type BackupRecord struct {
 	CompletedAt string `json:"completedAt,omitempty"`
 }
 
+type Admin struct {
+	ID        int64  `json:"id"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
 type ServiceStatus struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
@@ -107,3 +115,8 @@ type ActionResponse struct {
 	Message string `json:"message"`
 }
 
+type AuthSession struct {
+	Token     string `json:"token"`
+	ExpiresAt string `json:"expiresAt"`
+	Admin     Admin  `json:"admin"`
+}

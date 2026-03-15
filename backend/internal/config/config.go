@@ -18,6 +18,8 @@ type Config struct {
 	LogsRoot        string
 	GeneratedRoot   string
 	StaticDir       string
+	AuthSecret      string
+	BootstrapEmail  string
 	PanelDomain     string
 	PanelPort       int
 	PanelHiddenPath string
@@ -38,6 +40,8 @@ func Load() Config {
 		LogsRoot:        env("KLOUDBOY_LOGS_ROOT", filepath.Join(dataDir, "logs")),
 		GeneratedRoot:   env("KLOUDBOY_GENERATED_ROOT", filepath.Join(dataDir, "generated")),
 		StaticDir:       env("KLOUDBOY_STATIC_DIR", ""),
+		AuthSecret:      env("KLOUDBOY_AUTH_SECRET", ""),
+		BootstrapEmail:  env("KLOUDBOY_BOOTSTRAP_ADMIN_EMAIL", "admin@kloudboy.local"),
 		PanelDomain:     env("KLOUDBOY_PANEL_DOMAIN", "panel.example.com"),
 		PanelPort:       envInt("KLOUDBOY_PANEL_PORT", 8443),
 		PanelHiddenPath: env("KLOUDBOY_PANEL_HIDDEN_PATH", "/kb-admin-demo/"),
@@ -47,6 +51,20 @@ func Load() Config {
 
 func (c Config) Address() string {
 	return fmt.Sprintf("%s:%d", c.HTTPHost, c.HTTPPort)
+}
+
+func (c Config) PanelBasePath() string {
+	path := c.PanelHiddenPath
+	if path == "" || path == "/" {
+		return "/"
+	}
+	if path[0] != '/' {
+		path = "/" + path
+	}
+	if path[len(path)-1] != '/' {
+		path += "/"
+	}
+	return path
 }
 
 func env(key string, fallback string) string {

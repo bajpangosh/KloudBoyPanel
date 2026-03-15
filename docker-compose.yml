@@ -27,7 +27,7 @@ services:
       context: ./frontend
       args:
         VITE_API_BASE_URL: http://localhost:8443
-        VITE_PANEL_BASE_PATH: /
+        VITE_PANEL_BASE_PATH: /kb-admin-demo/
     container_name: kloudboy-frontend
     depends_on:
       - backend
@@ -36,4 +36,3 @@ services:
 
 volumes:
   kloudboy_data:
-

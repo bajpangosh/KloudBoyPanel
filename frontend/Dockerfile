@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 
 ARG VITE_API_BASE_URL=http://localhost:8443
-ARG VITE_PANEL_BASE_PATH=/
+ARG VITE_PANEL_BASE_PATH=/kb-admin-demo/
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 ENV VITE_PANEL_BASE_PATH=${VITE_PANEL_BASE_PATH}
 
@@ -20,4 +20,3 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
-
