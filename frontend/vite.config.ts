@@ -8,8 +8,11 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
     base: env.VITE_PANEL_BASE_PATH || "/",
     server: {
-      port: 5173
+      port: 5173,
+      proxy: {
+        "/api": "http://localhost:8443",
+        "/healthz": "http://localhost:8443"
+      }
     }
   };
 });
-

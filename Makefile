@@ -25,3 +25,14 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+.PHONY: docker-single-build docker-single-up docker-single-down
+
+docker-single-build:
+	docker compose -f docker-compose.single.yml build
+
+docker-single-up:
+	docker compose -f docker-compose.single.yml up --build
+
+docker-single-down:
+	docker compose -f docker-compose.single.yml down

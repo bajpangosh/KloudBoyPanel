@@ -68,6 +68,40 @@ To stop the stack:
 docker compose down
 ```
 
+## Single-container Docker flow
+
+If you want the frontend and backend in one container on one port, use the combined image:
+
+```bash
+cd /Users/bajpangosh/Documents/GitHub/KloudBoyPanel
+docker compose -f docker-compose.single.yml up --build
+```
+
+Then open:
+
+- Panel UI: `http://localhost:8443`
+- API health: `http://localhost:8443/healthz`
+
+Example API test:
+
+```bash
+curl -X POST http://localhost:8443/api/sites/create \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "domain":"example.com",
+    "phpVersion":"8.3",
+    "installWordpress":true,
+    "enableRedis":true,
+    "template":"standard-wordpress"
+  }'
+```
+
+To stop it:
+
+```bash
+docker compose -f docker-compose.single.yml down
+```
+
 ## Current scope
 
 This first pass focuses on the platform foundation:

@@ -1,0 +1,31 @@
+services:
+  panel:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_PANEL_BASE_PATH: /
+    container_name: kloudboy-panel
+    environment:
+      KLOUDBOY_ENV: development
+      KLOUDBOY_HTTP_HOST: 0.0.0.0
+      KLOUDBOY_HTTP_PORT: 8443
+      KLOUDBOY_DATA_DIR: /app/data
+      KLOUDBOY_SITES_ROOT: /app/data/sites
+      KLOUDBOY_BACKUPS_ROOT: /app/data/backups
+      KLOUDBOY_LOGS_ROOT: /app/data/logs
+      KLOUDBOY_GENERATED_ROOT: /app/data/generated
+      KLOUDBOY_DB_PATH: /app/data/kloudboy.db
+      KLOUDBOY_STATIC_DIR: /app/frontend
+      KLOUDBOY_PANEL_DOMAIN: panel.local
+      KLOUDBOY_PANEL_PORT: 8443
+      KLOUDBOY_PANEL_HIDDEN_PATH: /kb-admin-demo/
+      KLOUDBOY_TIMEZONE: Asia/Kolkata
+    ports:
+      - "8443:8443"
+    volumes:
+      - kloudboy_single_data:/app/data
+
+volumes:
+  kloudboy_single_data:
+

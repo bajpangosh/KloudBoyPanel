@@ -37,6 +37,8 @@ func NewRouter(application *app.Application) *gin.Engine {
 		api.POST("/php/change", h.changePHPVersion)
 	}
 
+	mountFrontend(router, application.Config.StaticDir)
+
 	return router
 }
 

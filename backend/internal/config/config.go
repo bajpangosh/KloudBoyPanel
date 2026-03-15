@@ -17,6 +17,7 @@ type Config struct {
 	BackupsRoot     string
 	LogsRoot        string
 	GeneratedRoot   string
+	StaticDir       string
 	PanelDomain     string
 	PanelPort       int
 	PanelHiddenPath string
@@ -36,6 +37,7 @@ func Load() Config {
 		BackupsRoot:     env("KLOUDBOY_BACKUPS_ROOT", filepath.Join(dataDir, "backups")),
 		LogsRoot:        env("KLOUDBOY_LOGS_ROOT", filepath.Join(dataDir, "logs")),
 		GeneratedRoot:   env("KLOUDBOY_GENERATED_ROOT", filepath.Join(dataDir, "generated")),
+		StaticDir:       env("KLOUDBOY_STATIC_DIR", ""),
 		PanelDomain:     env("KLOUDBOY_PANEL_DOMAIN", "panel.example.com"),
 		PanelPort:       envInt("KLOUDBOY_PANEL_PORT", 8443),
 		PanelHiddenPath: env("KLOUDBOY_PANEL_HIDDEN_PATH", "/kb-admin-demo/"),
@@ -66,4 +68,3 @@ func envInt(key string, fallback int) int {
 	}
 	return value
 }
-
