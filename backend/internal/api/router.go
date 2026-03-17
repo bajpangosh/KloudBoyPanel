@@ -37,12 +37,15 @@ func NewRouter(application *app.Application) *gin.Engine {
 		protected.GET("/backups", h.listBackups)
 		protected.GET("/server/status", h.serverStatus)
 		protected.GET("/panel/configuration", h.panelConfiguration)
+		protected.POST("/databases/create", h.createDatabase)
 		protected.POST("/sites/create", h.createSite)
 		protected.POST("/sites/delete", h.deleteSite)
 		protected.POST("/site/create", h.createSite)
 		protected.POST("/site/delete", h.deleteSite)
 		protected.POST("/backup", h.createBackup)
 		protected.POST("/php/change", h.changePHPVersion)
+		protected.POST("/server/services/restart", h.restartService)
+		protected.POST("/security/malware-scan", h.runMalwareScan)
 	}
 
 	mountFrontend(router, application.Config.StaticDir, application.Config.PanelBasePath())
@@ -79,6 +82,21 @@ func (h *handler) listDatabases(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, payload)
+}
+
+func (h *handler) createDatabase(c *gin.Context) {
+	var input services.CreateDatabaseInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		writeError(c, err)
+		return
+	}
+
+	payload, err := h.app.DatabaseService.CreateDatabase(input)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, payload)
 }
 
 func (h *handler) listBackups(c *gin.Context) {
@@ -160,6 +178,36 @@ func (h *handler) changePHPVersion(c *gin.Context) {
 	}
 
 	payload, err := h.app.PHPService.ChangeVersion(input)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, payload)
+}
+
+func (h *handler) restartService(c *gin.Context) {
+	var input services.RestartServiceInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		writeError(c, err)
+		return
+	}
+
+	payload, err := h.app.ServerService.RestartService(input)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, payload)
+}
+
+func (h *handler) runMalwareScan(c *gin.Context) {
+	var input services.MalwareScanInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		writeError(c, err)
+		return
+	}
+
+	payload, err := h.app.SecurityService.RunMalwareScan(input)
 	if err != nil {
 		writeError(c, err)
 		return

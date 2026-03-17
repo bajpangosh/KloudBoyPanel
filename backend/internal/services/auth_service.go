@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -139,6 +140,10 @@ func (s *AuthService) Login(input LoginInput) (*models.AuthSession, error) {
 		return nil, err
 	}
 
+	if err := s.persistSessionToken(admin, token, expiresAt); err != nil {
+		return nil, err
+	}
+
 	return &models.AuthSession{
 		Token:     token,
 		ExpiresAt: expiresAt.Format(time.RFC3339),
@@ -147,6 +152,10 @@ func (s *AuthService) Login(input LoginInput) (*models.AuthSession, error) {
 }
 
 func (s *AuthService) CurrentAdmin(token string) (*models.Admin, error) {
+	if err := s.ensureSessionToken(token); err != nil {
+		return nil, err
+	}
+
 	claims, err := s.parseToken(token)
 	if err != nil {
 		return nil, err
@@ -161,6 +170,19 @@ func (s *AuthService) CurrentAdmin(token string) (*models.Admin, error) {
 	}
 
 	return admin, nil
+}
+
+func (s *AuthService) Logout(token string) error {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return nil
+	}
+
+	if _, err := s.db.Exec(`DELETE FROM api_tokens WHERE token_prefix = ?`, tokenFingerprint(token)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *AuthService) ensureSecret() error {
@@ -272,6 +294,48 @@ func (s *AuthService) issueToken(admin *models.Admin) (string, time.Time, error)
 	return fmt.Sprintf("%s.%s", encodedPayload, signature), expiresAt, nil
 }
 
+func (s *AuthService) persistSessionToken(admin *models.Admin, token string, expiresAt time.Time) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.Exec(
+		`INSERT INTO api_tokens (name, token_prefix, scopes, last_used_at, expires_at, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		fmt.Sprintf("session:%d", admin.ID),
+		tokenFingerprint(token),
+		"session",
+		now,
+		expiresAt.Format(time.RFC3339),
+		now,
+	)
+	return err
+}
+
+func (s *AuthService) ensureSessionToken(token string) error {
+	fingerprint := tokenFingerprint(token)
+	var expiresAt sql.NullString
+	err := s.db.QueryRow(`SELECT expires_at FROM api_tokens WHERE token_prefix = ?`, fingerprint).Scan(&expiresAt)
+	if err == sql.ErrNoRows {
+		return ErrUnauthorized
+	}
+	if err != nil {
+		return err
+	}
+
+	if expiresAt.Valid && strings.TrimSpace(expiresAt.String) != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, expiresAt.String)
+		if parseErr == nil && time.Now().UTC().After(parsed) {
+			_, _ = s.db.Exec(`DELETE FROM api_tokens WHERE token_prefix = ?`, fingerprint)
+			return ErrUnauthorized
+		}
+	}
+
+	_, err = s.db.Exec(`UPDATE api_tokens SET last_used_at = ? WHERE token_prefix = ?`, time.Now().UTC().Format(time.RFC3339), fingerprint)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *AuthService) parseToken(token string) (*authClaims, error) {
 	if err := s.ensureSecret(); err != nil {
 		return nil, err
@@ -340,4 +404,9 @@ func randomToken(length int) (string, error) {
 		token = token[:length]
 	}
 	return token, nil
+}
+
+func tokenFingerprint(token string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(token)))
+	return hex.EncodeToString(sum[:])
 }

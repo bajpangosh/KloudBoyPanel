@@ -33,6 +33,12 @@ type DatabaseRecord struct {
 	UpdatedAt    string `json:"updatedAt"`
 }
 
+type DatabaseCreateResult struct {
+	Database     DatabaseRecord `json:"database"`
+	DatabasePath string         `json:"databasePath"`
+	Message      string         `json:"message"`
+}
+
 type BackupRecord struct {
 	ID          int64  `json:"id"`
 	SiteID      int64  `json:"siteId"`
@@ -57,6 +63,21 @@ type ServiceStatus struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
 	Detail string `json:"detail"`
+}
+
+type ServiceCommandAttempt struct {
+	Command string `json:"command"`
+	Status  string `json:"status"`
+	Output  string `json:"output"`
+}
+
+type ServiceActionResult struct {
+	Service     string                  `json:"service"`
+	Status      string                  `json:"status"`
+	Detail      string                  `json:"detail"`
+	Attempts    []ServiceCommandAttempt `json:"attempts"`
+	StartedAt   string                  `json:"startedAt"`
+	CompletedAt string                  `json:"completedAt"`
 }
 
 type Alert struct {
@@ -119,4 +140,23 @@ type AuthSession struct {
 	Token     string `json:"token"`
 	ExpiresAt string `json:"expiresAt"`
 	Admin     Admin  `json:"admin"`
+}
+
+type MalwareFinding struct {
+	SiteDomain string `json:"siteDomain"`
+	FilePath   string `json:"filePath"`
+	Rule       string `json:"rule"`
+	Severity   string `json:"severity"`
+	Detail     string `json:"detail"`
+}
+
+type MalwareScanResult struct {
+	Status       string           `json:"status"`
+	Scope        string           `json:"scope"`
+	SitesScanned []string         `json:"sitesScanned"`
+	FilesScanned int              `json:"filesScanned"`
+	Findings     []MalwareFinding `json:"findings"`
+	ReportPath   string           `json:"reportPath"`
+	StartedAt    string           `json:"startedAt"`
+	CompletedAt  string           `json:"completedAt"`
 }

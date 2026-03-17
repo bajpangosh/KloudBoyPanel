@@ -12,15 +12,9 @@
           <p class="mt-4 max-w-2xl text-base leading-7 text-slate-600">
             This cockpit is wired around the KloudBoy spec: site provisioning, database management, backups, server monitoring, and WordPress tooling for WooCommerce-heavy workloads.
           </p>
-          <div class="mt-5 flex flex-wrap gap-3">
-            <span
-              v-for="action in overview.quickActions"
-              :key="action"
-              class="rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700"
-            >
-              {{ action }}
-            </span>
-          </div>
+          <p class="mt-5 inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700">
+            Authenticated operator mode with live backend state
+          </p>
         </div>
 
         <div class="rounded-[28px] bg-slate-950 p-5 text-white">
@@ -44,6 +38,19 @@
         :metric="metric"
       />
     </div>
+
+    <section
+      v-if="loadError"
+      class="rounded-[28px] border border-rose-200 bg-rose-50 px-5 py-4 text-sm leading-7 text-rose-700"
+    >
+      {{ loadError }}
+    </section>
+
+    <QuickActionsPanel
+      :sites="sites"
+      :services="overview.services"
+      @refresh="refreshDashboard"
+    />
 
     <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <section class="glass-panel accent-ring rounded-[32px] border border-white/70 p-6">
@@ -153,24 +160,54 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
+import axios from "axios";
 
 import MetricCard from "../components/MetricCard.vue";
+import QuickActionsPanel from "../components/QuickActionsPanel.vue";
 import StatusPill from "../components/StatusPill.vue";
-import { fallbackOverview, type DashboardOverview } from "../data/panel";
-import { fetchDashboardOverview } from "../services/panelApi";
+import type { DashboardOverview, SiteSummary } from "../data/panel";
+import { fetchDashboardOverview, fetchSites } from "../services/panelApi";
 
 const loading = ref(true);
-const overview = ref<DashboardOverview>(fallbackOverview);
+const loadError = ref("");
+const overview = ref<DashboardOverview>({
+  metrics: [],
+  quickActions: [],
+  services: [],
+  recentSites: [],
+  recentBackups: [],
+  alerts: []
+});
+const sites = ref<SiteSummary[]>([]);
 
 const dashboardMessage = computed(() =>
   overview.value.recentSites.length > 0
-    ? "Live data is flowing from the API. Keep layering in provisioning, backup, and security automation."
-    : "Fallback blueprint data is shown until the backend server is running. Once the Go API is up, this page will reflect live site, backup, and service state."
+      ? "Live site, backup, and service data is flowing from the API. Use the quick actions below to operate the node directly."
+      : "The panel is online with live API state. Use the quick actions below to provision the first site, database, backup, or malware scan."
 );
 
-onMounted(async () => {
-  overview.value = await fetchDashboardOverview();
-  loading.value = false;
-});
-</script>
+async function refreshDashboard(): Promise<void> {
+  loading.value = true;
+  loadError.value = "";
 
+  try {
+    const [dashboardOverview, siteList] = await Promise.all([
+      fetchDashboardOverview(),
+      fetchSites()
+    ]);
+
+    overview.value = dashboardOverview;
+    sites.value = siteList;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      loadError.value = error.response?.data?.error || "Failed to load live dashboard state.";
+    } else {
+      loadError.value = "Failed to load live dashboard state.";
+    }
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(refreshDashboard);
+</script>

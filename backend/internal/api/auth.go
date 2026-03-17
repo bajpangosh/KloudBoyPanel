@@ -38,6 +38,12 @@ func (h *handler) currentAdmin(c *gin.Context) {
 }
 
 func (h *handler) logout(c *gin.Context) {
+	token := bearerToken(c.GetHeader("Authorization"))
+	if err := h.app.AuthService.Logout(token); err != nil {
+		writeError(c, err)
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
@@ -75,4 +81,3 @@ func bearerToken(header string) string {
 
 	return header
 }
-

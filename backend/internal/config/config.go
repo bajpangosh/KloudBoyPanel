@@ -13,6 +13,7 @@ type Config struct {
 	HTTPPort        int
 	DataDir         string
 	DatabasePath    string
+	DatabasesRoot   string
 	SitesRoot       string
 	BackupsRoot     string
 	LogsRoot        string
@@ -35,6 +36,7 @@ func Load() Config {
 		HTTPPort:        envInt("KLOUDBOY_HTTP_PORT", 8443),
 		DataDir:         dataDir,
 		DatabasePath:    env("KLOUDBOY_DB_PATH", filepath.Join(dataDir, "kloudboy.db")),
+		DatabasesRoot:   env("KLOUDBOY_DATABASES_ROOT", filepath.Join(dataDir, "databases")),
 		SitesRoot:       env("KLOUDBOY_SITES_ROOT", filepath.Join(dataDir, "sites")),
 		BackupsRoot:     env("KLOUDBOY_BACKUPS_ROOT", filepath.Join(dataDir, "backups")),
 		LogsRoot:        env("KLOUDBOY_LOGS_ROOT", filepath.Join(dataDir, "logs")),

@@ -28,6 +28,8 @@ const pillClass = computed(() => {
     case "skipped":
     case "inventory":
       return "bg-sky-100 text-sky-700";
+    case "offline":
+    case "unavailable":
     case "deleted":
     case "error":
       return "bg-rose-100 text-rose-700";
@@ -36,4 +38,3 @@ const pillClass = computed(() => {
   }
 });
 </script>
-

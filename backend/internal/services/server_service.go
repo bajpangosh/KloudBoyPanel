@@ -1,9 +1,11 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -22,6 +24,10 @@ type ServerService struct {
 
 func NewServerService(db *sql.DB, cfg config.Config) *ServerService {
 	return &ServerService{db: db, cfg: cfg}
+}
+
+type RestartServiceInput struct {
+	Service string `json:"service"`
 }
 
 func (s *ServerService) DashboardOverview() (*models.DashboardOverview, error) {
@@ -87,13 +93,7 @@ func (s *ServerService) Status() (*models.ServerStatus, error) {
 		WebsiteCount:    siteCount,
 		DatabaseCount:   databaseCount,
 		BackupCount:     backupCount,
-		Services: []models.ServiceStatus{
-			{Name: "KloudBoy Panel", Status: "online", Detail: "API process expected on configured port"},
-			{Name: "SQLite", Status: "online", Detail: s.cfg.DatabasePath},
-			{Name: "OpenLiteSpeed", Status: "planned", Detail: "Host integration not wired yet"},
-			{Name: "MariaDB", Status: "planned", Detail: "Provisioning service pending"},
-			{Name: "Redis", Status: "planned", Detail: "Cache integration pending"},
-		},
+		Services:        s.buildManagedServices(),
 	}
 	return status, nil
 }
@@ -106,6 +106,71 @@ func (s *ServerService) Configuration() models.PanelConfiguration {
 		Timezone:        s.cfg.Timezone,
 		BackupLocation:  s.cfg.BackupsRoot,
 	}
+}
+
+func (s *ServerService) RestartService(input RestartServiceInput) (*models.ServiceActionResult, error) {
+	serviceKey := normalizeServiceKey(input.Service)
+	if serviceKey == "" {
+		return nil, fmt.Errorf("%w: service is required", ErrInvalidInput)
+	}
+
+	definition, ok := restartableServices()[serviceKey]
+	if !ok {
+		return nil, fmt.Errorf("%w: unsupported service %q", ErrInvalidInput, input.Service)
+	}
+
+	startedAt := time.Now().UTC()
+	result := &models.ServiceActionResult{
+		Service:   definition.DisplayName,
+		Status:    "failed",
+		Detail:    "No restart command succeeded.",
+		Attempts:  make([]models.ServiceCommandAttempt, 0, len(definition.Commands)),
+		StartedAt: startedAt.Format(time.RFC3339),
+	}
+
+	for _, candidate := range definition.Commands {
+		commandString := strings.Join(candidate, " ")
+		binary, err := exec.LookPath(candidate[0])
+		if err != nil {
+			result.Attempts = append(result.Attempts, models.ServiceCommandAttempt{
+				Command: commandString,
+				Status:  "unavailable",
+				Output:  fmt.Sprintf("%s not found on this node", candidate[0]),
+			})
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		cmd := exec.CommandContext(ctx, binary, candidate[1:]...)
+		output, runErr := cmd.CombinedOutput()
+		cancel()
+
+		attempt := models.ServiceCommandAttempt{
+			Command: commandString,
+			Output:  strings.TrimSpace(string(output)),
+		}
+		if runErr != nil {
+			attempt.Status = "failed"
+			if attempt.Output == "" {
+				attempt.Output = runErr.Error()
+			}
+			result.Attempts = append(result.Attempts, attempt)
+			continue
+		}
+
+		attempt.Status = "completed"
+		if attempt.Output == "" {
+			attempt.Output = "Restart command completed without output."
+		}
+		result.Attempts = append(result.Attempts, attempt)
+		result.Status = "completed"
+		result.Detail = fmt.Sprintf("Restarted %s using %s", definition.DisplayName, commandString)
+		result.CompletedAt = time.Now().UTC().Format(time.RFC3339)
+		return result, nil
+	}
+
+	result.CompletedAt = time.Now().UTC().Format(time.RFC3339)
+	return result, nil
 }
 
 func (s *ServerService) DoctorChecks() ([]models.DoctorCheck, error) {
@@ -316,3 +381,134 @@ func humanUptime(seconds int64) string {
 	return fmt.Sprintf("%dm", minutes)
 }
 
+func (s *ServerService) buildManagedServices() []models.ServiceStatus {
+	return []models.ServiceStatus{
+		{
+			Name:   "KloudBoy Panel",
+			Status: "online",
+			Detail: panelRuntimeDetail(s.cfg.HTTPPort),
+		},
+		{
+			Name:   "SQLite",
+			Status: "online",
+			Detail: s.cfg.DatabasePath,
+		},
+		detectManagedService("OpenLiteSpeed", []string{"/usr/local/lsws/bin/lswsctrl", "lswsctrl", "lshttpd"}, "Restart commands are available on this node"),
+		detectManagedService("MariaDB", []string{"mariadbd", "mysqld", "mysqladmin"}, "MariaDB tooling is available on this node"),
+		detectManagedService("Redis", []string{"redis-server", "redis-cli"}, "Redis tooling is available on this node"),
+	}
+}
+
+type serviceRestartDefinition struct {
+	DisplayName string
+	Commands    [][]string
+}
+
+func restartableServices() map[string]serviceRestartDefinition {
+	panelCommands := [][]string{
+		{"systemctl", "restart", "kloudboy"},
+		{"service", "kloudboy", "restart"},
+	}
+	if runningInContainer() {
+		panelCommands = append([][]string{
+			{"sh", "-lc", "(sleep 1 && kill -TERM 1) >/tmp/kloudboy-panel-restart.log 2>&1 &"},
+		}, panelCommands...)
+	}
+
+	return map[string]serviceRestartDefinition{
+		"panel": {
+			DisplayName: "KloudBoy Panel",
+			Commands:    panelCommands,
+		},
+		"openlitespeed": {
+			DisplayName: "OpenLiteSpeed",
+			Commands: [][]string{
+				{"systemctl", "restart", "lsws"},
+				{"systemctl", "restart", "openlitespeed"},
+				{"service", "lsws", "restart"},
+			},
+		},
+		"mariadb": {
+			DisplayName: "MariaDB",
+			Commands: [][]string{
+				{"systemctl", "restart", "mariadb"},
+				{"systemctl", "restart", "mysql"},
+				{"service", "mariadb", "restart"},
+				{"service", "mysql", "restart"},
+			},
+		},
+		"redis": {
+			DisplayName: "Redis",
+			Commands: [][]string{
+				{"systemctl", "restart", "redis-server"},
+				{"systemctl", "restart", "redis"},
+				{"service", "redis-server", "restart"},
+				{"service", "redis", "restart"},
+			},
+		},
+	}
+}
+
+func normalizeServiceKey(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	replacer := strings.NewReplacer(" ", "", "-", "", "_", "")
+	value = replacer.Replace(value)
+
+	switch value {
+	case "kloudboypanel", "panel":
+		return "panel"
+	case "openlitespeed", "ols", "lsws":
+		return "openlitespeed"
+	case "mariadb", "mysql":
+		return "mariadb"
+	case "redis", "redisserver":
+		return "redis"
+	default:
+		return value
+	}
+}
+
+func detectManagedService(name string, binaries []string, availableDetail string) models.ServiceStatus {
+	for _, binary := range binaries {
+		if fileExists(binary) {
+			return models.ServiceStatus{
+				Name:   name,
+				Status: "online",
+				Detail: availableDetail,
+			}
+		}
+
+		if resolved, err := exec.LookPath(binary); err == nil {
+			return models.ServiceStatus{
+				Name:   name,
+				Status: "online",
+				Detail: fmt.Sprintf("Detected at %s", resolved),
+			}
+		}
+	}
+
+	return models.ServiceStatus{
+		Name:   name,
+		Status: "unavailable",
+		Detail: "Not installed on this node",
+	}
+}
+
+func panelRuntimeDetail(port int) string {
+	if runningInContainer() {
+		return fmt.Sprintf("Containerized panel runtime on port %d", port)
+	}
+	return fmt.Sprintf("API process listening on port %d", port)
+}
+
+func runningInContainer() bool {
+	return fileExists("/.dockerenv") || fileExists("/run/.containerenv")
+}
+
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}

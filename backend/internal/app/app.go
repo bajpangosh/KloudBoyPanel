@@ -11,13 +11,15 @@ import (
 )
 
 type Application struct {
-	Config        config.Config
-	DB            *sql.DB
-	AuthService   *services.AuthService
-	SiteService   *services.SiteService
-	BackupService *services.BackupService
-	PHPService    *services.PHPService
-	ServerService *services.ServerService
+	Config          config.Config
+	DB              *sql.DB
+	AuthService     *services.AuthService
+	DatabaseService *services.DatabaseService
+	SiteService     *services.SiteService
+	BackupService   *services.BackupService
+	PHPService      *services.PHPService
+	ServerService   *services.ServerService
+	SecurityService *services.SecurityService
 }
 
 func Bootstrap() (*Application, error) {
@@ -32,10 +34,12 @@ func Bootstrap() (*Application, error) {
 	}
 
 	authService := services.NewAuthService(db, cfg)
+	databaseService := services.NewDatabaseService(db, cfg)
 	siteService := services.NewSiteService(db, cfg)
 	backupService := services.NewBackupService(db, cfg)
 	phpService := services.NewPHPService(db)
 	serverService := services.NewServerService(db, cfg)
+	securityService := services.NewSecurityService(db, cfg)
 
 	bootstrapCredentials, err := authService.Initialize()
 	if err != nil {
@@ -46,13 +50,15 @@ func Bootstrap() (*Application, error) {
 	}
 
 	return &Application{
-		Config:        cfg,
-		DB:            db,
-		AuthService:   authService,
-		SiteService:   siteService,
-		BackupService: backupService,
-		PHPService:    phpService,
-		ServerService: serverService,
+		Config:          cfg,
+		DB:              db,
+		AuthService:     authService,
+		DatabaseService: databaseService,
+		SiteService:     siteService,
+		BackupService:   backupService,
+		PHPService:      phpService,
+		ServerService:   serverService,
+		SecurityService: securityService,
 	}, nil
 }
 
@@ -66,6 +72,7 @@ func (a *Application) Close() error {
 func ensureDirectories(cfg config.Config) error {
 	paths := []string{
 		cfg.DataDir,
+		cfg.DatabasesRoot,
 		cfg.SitesRoot,
 		cfg.BackupsRoot,
 		cfg.LogsRoot,
